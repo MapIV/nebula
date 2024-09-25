@@ -112,8 +112,21 @@ void HesaiDecoderWrapper::ProcessCloudPacket(
     current_scan_msg_->packets.emplace_back(std::move(pandar_packet_msg));
   }
 
+  // Publish scan message only if it has been written to
+  if (current_scan_msg_ && !current_scan_msg_->packets.empty()) {
+    packets_pub_->publish(std::move(current_scan_msg_));
+    current_scan_msg_ = std::make_unique<pandar_msgs::msg::PandarScan>();
+  }
+
   std::tuple<nebula::drivers::NebulaPointCloudPtr, double> pointcloud_ts{};
   nebula::drivers::NebulaPointCloudPtr pointcloud = nullptr;
+  if (
+    nebula_points_pub_->get_subscription_count() > 0 ||
+    nebula_points_pub_->get_intra_process_subscription_count() > 0 ||
+    aw_points_base_pub_->get_subscription_count() > 0 ||
+    aw_points_base_pub_->get_intra_process_subscription_count() > 0 ||
+    aw_points_ex_pub_->get_subscription_count() > 0 ||
+    aw_points_ex_pub_->get_intra_process_subscription_count() > 0)
   {
     std::lock_guard lock(mtx_driver_ptr_);
     pointcloud_ts = driver_ptr_->ParseCloudPacket(packet_msg->data);
@@ -130,12 +143,6 @@ void HesaiDecoderWrapper::ProcessCloudPacket(
   }
 
   cloud_watchdog_->update();
-
-  // Publish scan message only if it has been written to
-  if (current_scan_msg_ && !current_scan_msg_->packets.empty()) {
-    packets_pub_->publish(std::move(current_scan_msg_));
-    current_scan_msg_ = std::make_unique<pandar_msgs::msg::PandarScan>();
-  }
 
   if (
     nebula_points_pub_->get_subscription_count() > 0 ||
