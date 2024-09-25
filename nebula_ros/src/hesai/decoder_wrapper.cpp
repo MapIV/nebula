@@ -132,6 +132,10 @@ void HesaiDecoderWrapper::ProcessCloudPacket(
     pointcloud_ts = driver_ptr_->ParseCloudPacket(packet_msg->data);
     pointcloud = std::get<0>(pointcloud_ts);
   }
+  else
+  {
+    cloud_watchdog_->update();
+  }
 
   // A pointcloud is only emitted when a scan completes (e.g. 3599 packets do not emit, the 3600th
   // emits one)
