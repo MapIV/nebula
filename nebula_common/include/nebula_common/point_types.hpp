@@ -30,6 +30,15 @@ struct EIGEN_ALIGN16 PointXYZIR
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
+struct EIGEN_ALIGN16 PointXYZICR
+{
+  PCL_ADD_POINT4D;
+  float intensity;
+  std::uint8_t confidence;
+  uint16_t ring;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
 struct PointXYZICATR
 {
   PCL_ADD_POINT4D;
@@ -39,6 +48,7 @@ struct PointXYZICATR
   std::uint32_t time_stamp;
   std::uint8_t return_type;
 };
+
 /**
  * This point type is not using PCL_ADD_POINT4D to avoid the addition of a 32-bit dummy word.
  * The fields are ordered to meet the SSE alignment.
@@ -57,6 +67,21 @@ struct PointXYZIRCAEDT
   std::uint32_t time_stamp;
 };
 
+struct PointXYZIRCCAEDT
+{
+  float x;
+  float y;
+  float z;
+  std::uint8_t intensity;
+  std::uint8_t return_type;
+  std::uint8_t channel;
+  std::uint8_t confidence;
+  float azimuth;
+  float elevation;
+  float distance;
+  std::uint32_t time_stamp;
+};
+
 struct EIGEN_ALIGN16 PointXYZIRADT
 {
   PCL_ADD_POINT4D;
@@ -69,7 +94,20 @@ struct EIGEN_ALIGN16 PointXYZIRADT
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 };
 
-using NebulaPoint = PointXYZIRCAEDT;
+struct EIGEN_ALIGN16 PointXYZICRADT
+{
+  PCL_ADD_POINT4D;
+  float intensity;
+  std::uint8_t confidence;
+  uint16_t ring;
+  float azimuth;
+  float distance;
+  uint8_t return_type;
+  double time_stamp;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+};
+
+using NebulaPoint = PointXYZIRCCAEDT;
 using NebulaPointPtr = std::shared_ptr<NebulaPoint>;
 using NebulaPointCloud = pcl::PointCloud<NebulaPoint>;
 using NebulaPointCloudPtr = pcl::PointCloud<NebulaPoint>::Ptr;
@@ -79,6 +117,11 @@ using NebulaPointCloudPtr = pcl::PointCloud<NebulaPoint>::Ptr;
 POINT_CLOUD_REGISTER_POINT_STRUCT(
   nebula::drivers::PointXYZIR,
   (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(std::uint16_t, ring, ring))
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+  nebula::drivers::PointXYZICR,
+  (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(float, confidence, confidence)(std::uint16_t, ring, ring))
+
 
 POINT_CLOUD_REGISTER_POINT_STRUCT(
   nebula::drivers::PointXYZIRADT,
@@ -99,4 +142,17 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(
     return_type)(std::uint16_t, channel, channel)(float, azimuth, azimuth)(
     float, elevation, elevation)(float, distance, distance)(std::uint32_t, time_stamp, time_stamp))
 
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+  nebula::drivers::PointXYZIRCCAEDT,
+  (float, x, x)(float, y, y)(float, z, z)(std::uint8_t, intensity, intensity)(
+    std::uint8_t, return_type,
+    return_type)(std::uint8_t, channel, channel)(std::uint8_t, confidence, confidence)(float, azimuth, azimuth)(
+    float, elevation, elevation)(float, distance, distance)(std::uint32_t, time_stamp, time_stamp))
+
+POINT_CLOUD_REGISTER_POINT_STRUCT(
+  nebula::drivers::PointXYZICRADT,
+  (float, x, x)(float, y, y)(float, z, z)(float, intensity, intensity)(std::uint8_t ,confidence, confidence)(std::uint16_t, ring, ring)(
+    float, azimuth, azimuth)(float, distance, distance)(std::uint8_t, return_type, return_type)(
+    double, time_stamp, time_stamp))
+  
 #endif

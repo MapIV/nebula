@@ -147,7 +147,7 @@ void HesaiDecoderWrapper::on_pointcloud_decoded(
   }
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_base_pub_)) {
     const auto autoware_cloud_xyzi =
-      nebula::drivers::convert_point_xyzircaedt_to_point_xyzir(pointcloud);
+      nebula::drivers::convert_point_xyzirccaedt_to_point_xyzicr(pointcloud);
     auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(aw_points_base_pub_);
     pcl::toROSMsg(*autoware_cloud_xyzi, *ros_pc_msg_ptr);
     ros_pc_msg_ptr->header.stamp = cloud_stamp;
@@ -155,7 +155,7 @@ void HesaiDecoderWrapper::on_pointcloud_decoded(
   }
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_ex_pub_)) {
     const auto autoware_ex_cloud =
-      nebula::drivers::convert_point_xyzircaedt_to_point_xyziradt(pointcloud, timestamp_s);
+      nebula::drivers::convert_point_xyzirccaedt_to_point_xyzicradt(pointcloud, timestamp_s);
     auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(aw_points_ex_pub_);
     pcl::toROSMsg(*autoware_ex_cloud, *ros_pc_msg_ptr);
     ros_pc_msg_ptr->header.stamp = cloud_stamp;

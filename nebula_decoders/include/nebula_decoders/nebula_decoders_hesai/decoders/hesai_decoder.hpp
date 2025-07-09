@@ -237,7 +237,11 @@ private:
 
         point.return_type = static_cast<uint8_t>(return_type);
         point.channel = channel_id;
-
+        if constexpr (std::is_same_v<typename SensorT::packet_t::body_t::block_t::unit_t, nebula::drivers::hesai_packet::Unit4B>) {
+          point.confidence = unit.confidence_or_reserved;
+        } else {
+          point.confidence = 0; 
+        }
         // The raw_azimuth and channel are only used as indices, sin/cos functions use the precise
         // corrected angles
         float xy_distance = distance * corrected_angle_data.cos_elevation;

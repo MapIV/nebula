@@ -163,7 +163,7 @@ struct FunctionalSafety128E3X
 
 struct Packet128E3X : public PacketBase<2, 128, 2, 100>
 {
-  using body_t = BodyWithCrc<Block<Unit3B, Packet128E3X::n_channels>, Packet128E3X::n_blocks>;
+  using body_t = BodyWithCrc<Block<Unit4B, Packet128E3X::n_channels>, Packet128E3X::n_blocks>;
   Header12B header;
   body_t body;
   FunctionalSafety128E3X fs;

@@ -69,4 +69,52 @@ pcl::PointCloud<PointXYZIRADT>::Ptr convert_point_xyzircaedt_to_point_xyziradt(
   output_pointcloud->width = output_pointcloud->points.size();
   return output_pointcloud;
 }
+
+pcl::PointCloud<PointXYZICR>::Ptr convert_point_xyzirccaedt_to_point_xyzicr(
+  const pcl::PointCloud<PointXYZIRCCAEDT>::ConstPtr & input_pointcloud)
+{
+  pcl::PointCloud<PointXYZICR>::Ptr output_pointcloud(new pcl::PointCloud<PointXYZICR>);
+  output_pointcloud->reserve(input_pointcloud->points.size());
+  PointXYZICR point{};
+  for (const auto & p : input_pointcloud->points) {
+    point.x = p.x;
+    point.y = p.y;
+    point.z = p.z;
+    point.intensity = p.intensity;
+    point.confidence = p.confidence;
+    point.ring = p.channel;
+    output_pointcloud->points.emplace_back(point);
+  }
+
+  output_pointcloud->header = input_pointcloud->header;
+  output_pointcloud->height = 1;
+  output_pointcloud->width = output_pointcloud->points.size();
+  return output_pointcloud;
+}
+
+pcl::PointCloud<PointXYZICRADT>::Ptr convert_point_xyzirccaedt_to_point_xyzicradt(
+  const pcl::PointCloud<PointXYZIRCCAEDT>::ConstPtr & input_pointcloud, const double stamp)
+{
+  pcl::PointCloud<PointXYZICRADT>::Ptr output_pointcloud(new pcl::PointCloud<PointXYZICRADT>);
+  output_pointcloud->reserve(input_pointcloud->points.size());
+  PointXYZICRADT point{};
+  for (const auto & p : input_pointcloud->points) {
+    point.x = p.x;
+    point.y = p.y;
+    point.z = p.z;
+    point.intensity = p.intensity;
+    point.confidence = p.confidence;
+    point.ring = p.channel;
+    point.azimuth = rad2deg(p.azimuth) * 100.0;
+    point.distance = p.distance;
+    point.time_stamp = stamp + static_cast<double>(p.time_stamp) * 1e-9;
+    output_pointcloud->points.emplace_back(point);
+  }
+
+  output_pointcloud->header = input_pointcloud->header;
+  output_pointcloud->height = 1;
+  output_pointcloud->width = output_pointcloud->points.size();
+  return output_pointcloud;
+}
+
 }  // namespace nebula::drivers

@@ -20,6 +20,7 @@ GET_PTP_CONFIG_COMMAND = 0x26
 SET_DESTINATION_IP_COMMAND = 0x20
 SET_CONTROL_PORT_COMMAND = 0x21
 
+ON_NOISE_CONFIDENCE = True
 
 def unpack(struct_fields: str, buffer: bytes) -> Any:
     return struct.unpack(struct_fields, buffer)[0]
@@ -335,7 +336,7 @@ if __name__ == "__main__":
             )
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.settimeout(5)
+    sock.settimeout(50)
     sock.connect((args.sensor_ip, 9347))
 
     try:
@@ -412,6 +413,15 @@ if __name__ == "__main__":
                 f"Make sure the new sensor IP is successfully set to {new_sensor_ip}/{mask} by the following command"
             )
             print(Syntax(f"python3 {sys.argv[0]} --sensor-ip {new_sensor_ip}", "console"))
+
+        if (ON_NOISE_CONFIDENCE):
+            fixed_part = b'\x47\x74\xFF\x00\x00\x00\x00\x05\x00\x00\x00\x35'
+            udp_type_value = 0x02          
+            udp_type_data = struct.pack("!B", udp_type_value)
+            payload = fixed_part + udp_type_data 
+            sock.sendall(payload)
+            print("set rain and fog recognition function")
+
 
         if (
             args.destination_ip is not None
