@@ -174,7 +174,8 @@ void HesaiDecoderWrapper::on_pointcloud_decoded(
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(nebula_points_pub_)) {
     auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(nebula_points_pub_);
     pcl::toROSMsg(*pointcloud, *ros_pc_msg_ptr);
-    ros_pc_msg_ptr->header.stamp = cloud_stamp;
+    // ros_pc_msg_ptr->header.stamp = cloud_stamp;
+    ros_pc_msg_ptr->header.stamp = parent_node_.now();
     publish_cloud(std::move(ros_pc_msg_ptr), nebula_points_pub_);
   }
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_base_pub_)) {
