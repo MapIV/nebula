@@ -20,6 +20,7 @@
 #include <sensor_msgs/image_encodings.hpp>
 
 #include <algorithm>
+#include <cstdlib>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -174,8 +175,13 @@ void HesaiDecoderWrapper::on_pointcloud_decoded(
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(nebula_points_pub_)) {
     auto ros_pc_msg_ptr = ALLOCATE_OUTPUT_MESSAGE_UNIQUE(nebula_points_pub_);
     pcl::toROSMsg(*pointcloud, *ros_pc_msg_ptr);
-    // ros_pc_msg_ptr->header.stamp = cloud_stamp;
-    ros_pc_msg_ptr->header.stamp = parent_node_.now();
+    // By default pandar_points is stamped with wall-clock receive time (online behavior).
+    // For offline/benchmark replays that need a deterministic per-bag-frame stamp (so the
+    // same scan gets the same lidar_stamp on every replay -> cross-run frame alignment),
+    // set env NEBULA_POINTS_USE_SENSOR_TIME=1 to stamp with the sensor scan time instead.
+    static const bool use_sensor_time =
+      std::getenv("NEBULA_POINTS_USE_SENSOR_TIME") != nullptr;
+    ros_pc_msg_ptr->header.stamp = use_sensor_time ? cloud_stamp : parent_node_.now();
     publish_cloud(std::move(ros_pc_msg_ptr), nebula_points_pub_);
   }
   if (NEBULA_HAS_ANY_SUBSCRIPTIONS(aw_points_base_pub_)) {
