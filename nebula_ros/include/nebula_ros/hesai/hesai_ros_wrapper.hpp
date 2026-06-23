@@ -142,6 +142,11 @@ private:
   /// @brief Diagnostics that are related to functional safety
   diagnostic_updater::Updater diagnostic_updater_functional_safety_;
 
+  /// @brief Cached sensor inventory (SN / firmware / model), read once at startup
+  /// and published as a static diagnostic so it is recorded without any periodic
+  /// TCP polling.
+  std::vector<std::pair<std::string, std::string>> inventory_kv_;
+
   std::mutex mtx_config_;
 
   OnSetParametersCallbackHandle::SharedPtr parameter_event_cb_;

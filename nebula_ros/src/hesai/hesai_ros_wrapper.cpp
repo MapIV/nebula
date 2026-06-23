@@ -65,11 +65,47 @@ HesaiRosWrapper::HesaiRosWrapper(const rclcpp::NodeOptions & options)
 
   if (launch_hw_) {
     hw_interface_wrapper_.emplace(this, sensor_cfg_ptr_, use_udp_only);
-    if (!use_udp_only) {  // hardware monitor requires TCP connection
+    // The hardware monitor polls the sensor over TCP/PTC every diag_span. Hesai
+    // warns that sustained PTC polling can break the session (UDP then stops,
+    // needing a power cycle), which is unacceptable for 24/7 operation. Allow
+    // disabling it: functional-safety + point cloud come from UDP and are
+    // unaffected. (Inventory below is a single startup read, no polling.)
+    const bool enable_hw_monitor =
+      declare_parameter<bool>("diagnostics.hardware_monitor", true);
+    if (!use_udp_only && enable_hw_monitor) {  // hardware monitor requires TCP connection
       auto sync_tooling_worker = sync_tooling_plugin_ ? sync_tooling_plugin_->worker : nullptr;
       hw_monitor_wrapper_.emplace(
         this, diagnostic_updater_general_, hw_interface_wrapper_->hw_interface(), sensor_cfg_ptr_,
         sync_tooling_worker);
+    }
+    // Publish the once-read inventory (SN / firmware / model) as a static
+    // diagnostic so it is recorded with the rest of the diagnostics, without any
+    // further TCP traffic.
+    if (!use_udp_only) {
+      // Publish on the functional-safety updater (it has a running period; the
+      // general updater only self-publishes when the hw monitor drives it, which
+      // we may have disabled). The inventory is fetched asynchronously and may not
+      // be ready at construction time, so read it lazily and cache on first
+      // availability -- no further TCP, and robust to the fetch timing.
+      diagnostic_updater_functional_safety_.add(
+        "Inventory", [this](diagnostic_updater::DiagnosticStatusWrapper & stat) {
+          if (inventory_kv_.empty() && hw_interface_wrapper_) {
+            if (auto inv = hw_interface_wrapper_->inventory()) {
+              for (const auto & item : inv->to_json().items()) {
+                const auto & v = item.value();
+                inventory_kv_.emplace_back(
+                  item.key(), v.is_string() ? v.get<std::string>() : v.dump());
+              }
+            }
+          }
+          if (inventory_kv_.empty()) {
+            stat.summary(
+              diagnostic_msgs::msg::DiagnosticStatus::WARN, "Sensor inventory not available yet");
+            return;
+          }
+          stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Sensor inventory (SN / firmware)");
+          for (const auto & [k, val] : inventory_kv_) {stat.add(k, val);}
+        });
     }
   }
 
