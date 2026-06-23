@@ -143,9 +143,12 @@ private:
   diagnostic_updater::Updater diagnostic_updater_functional_safety_;
 
   /// @brief Cached sensor inventory (SN / firmware / model), read once at startup
-  /// and published as a static diagnostic so it is recorded without any periodic
-  /// TCP polling.
+  /// and published as a plain /diagnostics status so it is recorded without any
+  /// periodic TCP polling. Published via a raw publisher + timer (diagnostic_updater
+  /// did not surface a late-added task here).
   std::vector<std::pair<std::string, std::string>> inventory_kv_;
+  rclcpp::Publisher<diagnostic_msgs::msg::DiagnosticArray>::SharedPtr inventory_diag_pub_;
+  rclcpp::TimerBase::SharedPtr inventory_diag_timer_;
 
   std::mutex mtx_config_;
 

@@ -15,6 +15,7 @@
 #include <chrono>
 #include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <filesystem>
 #include <limits>
 #include <memory>
@@ -54,6 +55,58 @@ HesaiRosWrapper::HesaiRosWrapper(const rclcpp::NodeOptions & options)
   launch_hw_ = declare_parameter<bool>("launch_hw", param_read_only());
   bool use_udp_only = declare_parameter<bool>("udp_only", param_read_only());
 
+  // Inventory (SN / firmware): the hw interface reads it once, asynchronously.
+  // Publish it as a plain /diagnostics status on a 1 Hz timer (lazy read -> shows
+  // once available; no extra TCP). A raw publisher is used because a task added
+  // late to a diagnostic_updater here did not get surfaced.
+  if (launch_hw_ && !use_udp_only) {
+    inventory_diag_pub_ =
+      create_publisher<diagnostic_msgs::msg::DiagnosticArray>("/diagnostics", rclcpp::QoS(10));
+    const std::string inv_name = std::string(get_fully_qualified_name()) + ": Inventory";
+    const std::string hw_id = sensor_cfg_ptr_->frame_id;
+    inventory_diag_timer_ = create_wall_timer(std::chrono::seconds(1), [this, inv_name, hw_id]() {
+      if (inventory_kv_.empty() && hw_interface_wrapper_) {
+        if (auto inv = hw_interface_wrapper_->inventory()) {
+          // Read the common fields directly (bounded, NUL-safe). Avoid to_json():
+          // it also walks model-specific fields and unbounded C-string reads, which
+          // segfaulted on this unit's (longer-than-expected, truncated) inventory.
+          const auto & in = inv->get();
+          auto fld = [](const char * p, size_t n) {return std::string(p, ::strnlen(p, n));};
+          inventory_kv_.emplace_back("sn", fld(in.sn, sizeof(in.sn)));
+          inventory_kv_.emplace_back(
+            "date_of_manufacture", fld(in.date_of_manufacture, sizeof(in.date_of_manufacture)));
+          inventory_kv_.emplace_back("sw_ver", fld(in.sw_ver, sizeof(in.sw_ver)));
+          inventory_kv_.emplace_back("hw_ver", fld(in.hw_ver, sizeof(in.hw_ver)));
+          inventory_kv_.emplace_back(
+            "control_fw_ver", fld(in.control_fw_ver, sizeof(in.control_fw_ver)));
+          inventory_kv_.emplace_back(
+            "sensor_fw_ver", fld(in.sensor_fw_ver, sizeof(in.sensor_fw_ver)));
+          inventory_kv_.emplace_back("model", std::to_string(inv->model_number()));
+        }
+      }
+      diagnostic_msgs::msg::DiagnosticArray arr;
+      arr.header.stamp = this->now();
+      diagnostic_msgs::msg::DiagnosticStatus st;
+      st.name = inv_name;
+      st.hardware_id = hw_id;
+      if (inventory_kv_.empty()) {
+        st.level = diagnostic_msgs::msg::DiagnosticStatus::WARN;
+        st.message = "Sensor inventory not available yet";
+      } else {
+        st.level = diagnostic_msgs::msg::DiagnosticStatus::OK;
+        st.message = "Sensor inventory (SN / firmware)";
+        for (const auto & [k, val] : inventory_kv_) {
+          diagnostic_msgs::msg::KeyValue kv;
+          kv.key = k;
+          kv.value = val;
+          st.values.push_back(kv);
+        }
+      }
+      arr.status.push_back(st);
+      inventory_diag_pub_->publish(arr);
+    });
+  }
+
   if (use_udp_only) {
     RCLCPP_INFO_STREAM(
       get_logger(),
@@ -77,35 +130,6 @@ HesaiRosWrapper::HesaiRosWrapper(const rclcpp::NodeOptions & options)
       hw_monitor_wrapper_.emplace(
         this, diagnostic_updater_general_, hw_interface_wrapper_->hw_interface(), sensor_cfg_ptr_,
         sync_tooling_worker);
-    }
-    // Publish the once-read inventory (SN / firmware / model) as a static
-    // diagnostic so it is recorded with the rest of the diagnostics, without any
-    // further TCP traffic.
-    if (!use_udp_only) {
-      // Publish on the functional-safety updater (it has a running period; the
-      // general updater only self-publishes when the hw monitor drives it, which
-      // we may have disabled). The inventory is fetched asynchronously and may not
-      // be ready at construction time, so read it lazily and cache on first
-      // availability -- no further TCP, and robust to the fetch timing.
-      diagnostic_updater_functional_safety_.add(
-        "Inventory", [this](diagnostic_updater::DiagnosticStatusWrapper & stat) {
-          if (inventory_kv_.empty() && hw_interface_wrapper_) {
-            if (auto inv = hw_interface_wrapper_->inventory()) {
-              for (const auto & item : inv->to_json().items()) {
-                const auto & v = item.value();
-                inventory_kv_.emplace_back(
-                  item.key(), v.is_string() ? v.get<std::string>() : v.dump());
-              }
-            }
-          }
-          if (inventory_kv_.empty()) {
-            stat.summary(
-              diagnostic_msgs::msg::DiagnosticStatus::WARN, "Sensor inventory not available yet");
-            return;
-          }
-          stat.summary(diagnostic_msgs::msg::DiagnosticStatus::OK, "Sensor inventory (SN / firmware)");
-          for (const auto & [k, val] : inventory_kv_) {stat.add(k, val);}
-        });
     }
   }
 
